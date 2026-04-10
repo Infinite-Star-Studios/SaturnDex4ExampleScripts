@@ -45,7 +45,7 @@ async function main() {
 
   const sb = new ScriptBuilder();
   sb.BeginScript();
-  sb.CallInterop("Runtime.CallContext", [CONTRACT, "getNextVaultId", ...args]);
+  sb.CallContract(CONTRACT, "getNextVaultId", args);
   const script = sb.EndScript();
 
   const res = await rpc.invokeRawScript(CHAIN, script);

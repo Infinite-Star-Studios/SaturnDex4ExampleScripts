@@ -47,7 +47,7 @@ async function main() {
 
   const sb = new ScriptBuilder();
   sb.BeginScript();
-  sb.CallInterop("Runtime.CallContext", [CONTRACT, "getVaultHighWaterMark", ...args]);
+  sb.CallContract(CONTRACT, "getVaultHighWaterMark", args);
   const script = sb.EndScript();
 
   const res = await rpc.invokeRawScript(CHAIN, script);

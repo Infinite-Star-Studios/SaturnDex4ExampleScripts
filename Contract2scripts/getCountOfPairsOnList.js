@@ -45,7 +45,7 @@ async function main() {
 
   const sb = new ScriptBuilder();
   sb.BeginScript();
-  sb.CallInterop("Runtime.CallContext", [CONTRACT, "getCountOfPairsOnList", ...args]);
+  sb.CallContract(CONTRACT, "getCountOfPairsOnList", args);
   const script = sb.EndScript();
 
   const res = await rpc.invokeRawScript(CHAIN, script);

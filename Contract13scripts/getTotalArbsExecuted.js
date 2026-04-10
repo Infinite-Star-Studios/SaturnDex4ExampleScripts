@@ -45,7 +45,7 @@ async function main() {
 
   const sb = new ScriptBuilder();
   sb.BeginScript();
-  sb.CallInterop("Runtime.CallContext", [CONTRACT, "getTotalArbsExecuted", ...args]);
+  sb.CallContract(CONTRACT, "getTotalArbsExecuted", args);
   const script = sb.EndScript();
 
   const res = await rpc.invokeRawScript(CHAIN, script);

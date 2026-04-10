@@ -47,7 +47,7 @@ async function main() {
 
   const sb = new ScriptBuilder();
   sb.BeginScript();
-  sb.CallInterop("Runtime.CallContext", [CONTRACT, "getVaultBaseToken", ...args]);
+  sb.CallContract(CONTRACT, "getVaultBaseToken", args);
   const script = sb.EndScript();
 
   const res = await rpc.invokeRawScript(CHAIN, script);

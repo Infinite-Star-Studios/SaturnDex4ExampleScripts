@@ -48,7 +48,7 @@ async function main() {
 
   const sb = new ScriptBuilder();
   sb.BeginScript();
-  sb.CallInterop("Runtime.CallContext", [CONTRACT, "getProviderClaimable", ...args]);
+  sb.CallContract(CONTRACT, "getProviderClaimable", args);
   const script = sb.EndScript();
 
   const res = await rpc.invokeRawScript(CHAIN, script);

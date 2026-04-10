@@ -45,7 +45,7 @@ async function main() {
 
   const sb = new ScriptBuilder();
   sb.BeginScript();
-  sb.CallInterop("Runtime.CallContext", [CONTRACT, "getExecutorSharePer100", ...args]);
+  sb.CallContract(CONTRACT, "getExecutorSharePer100", args);
   const script = sb.EndScript();
 
   const res = await rpc.invokeRawScript(CHAIN, script);

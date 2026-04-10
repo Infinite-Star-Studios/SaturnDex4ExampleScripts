@@ -45,7 +45,7 @@ async function main() {
 
   const sb = new ScriptBuilder();
   sb.BeginScript();
-  sb.CallInterop("Runtime.CallContext", [CONTRACT, "getFeeSplitRatios", ...args]);
+  sb.CallContract(CONTRACT, "getFeeSplitRatios", args);
   const script = sb.EndScript();
 
   const res = await rpc.invokeRawScript(CHAIN, script);
