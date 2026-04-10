@@ -10,30 +10,46 @@
  * No witness / signing required.
  */
 
-const { PhantasmaAPI, ScriptBuilder, decodeVMObject } = require("phantasma-sdk-ts");
+const { PhantasmaAPI, ScriptBuilder, Decoder } = require("phantasma-sdk-ts");
 
 const RPC_URL  = "https://devnet.phantasma.info/rpc";
 const NEXUS    = "testnet";
 const CHAIN    = "main";
 const CONTRACT = "saturnpools";
 
-const rpc = new PhantasmaAPI(RPC_URL, undefined, NEXUS);
+const rpc = new PhantasmaAPI(RPC_URL, null, NEXUS);
 
-function decodeOne(b64) {
-  if (!b64 || typeof b64 !== "string") return b64;
-  try {
-    const hex = Buffer.from(b64, "base64").toString("hex");
-    return decodeVMObject(hex);
-  } catch {
-    return b64;
-  }
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function looksLikeHex(str) {
+  return typeof str === "string" && /^[0-9a-fA-F]+$/.test(str) && str.length % 2 === 0;
 }
 
-function decodeResult(res) {
-  if (!res) return null;
-  if (Array.isArray(res.results)) return res.results.map(decodeOne);
-  if (res.result) return decodeOne(res.result);
-  return res;
+function decodeVmValue(hex) {
+  const decoder = new Decoder(hex);
+  return decoder.readVmObject();
+}
+
+function normalizeDecoded(value) {
+  if (value == null) return value;
+  if (typeof value === "string") return value;
+  if (value.Text) return value.Text;
+  if (typeof value.toString === "function") return value.toString();
+  return value;
+}
+
+function decodeNestedVmResult(hex) {
+  let value = decodeVmValue(hex);
+  value = normalizeDecoded(value);
+
+  // if first decode returns another hex blob, decode again
+  if (looksLikeHex(value)) {
+    let inner = decodeVmValue(value);
+    inner = normalizeDecoded(inner);
+    return inner;
+  }
+
+  return value;
 }
 
 async function main() {
@@ -46,16 +62,19 @@ async function main() {
 ];
 
   const sb = new ScriptBuilder();
-  sb.BeginScript();
-  sb.CallInterop("Runtime.CallContext", [CONTRACT, "getPoolProvider", ...args]);
-  const script = sb.EndScript();
+  const script = sb
+    .BeginScript()
+    .CallContract(CONTRACT, "getPoolProvider", args)
+    .EndScript();
 
   const res = await rpc.invokeRawScript(CHAIN, script);
-  if (res && res.error) {
-    console.error("ERROR:", res.error);
+  if (!res || res.error) {
+    console.error("ERROR:", res?.error ?? "empty response");
     process.exit(1);
   }
-  console.log("decoded:", JSON.stringify(decodeResult(res), null, 2));
+
+  const decoded = decodeNestedVmResult(res.result);
+  console.log("decoded:", JSON.stringify(decoded, null, 2));
   console.log("raw    :", JSON.stringify(res));
 }
 
