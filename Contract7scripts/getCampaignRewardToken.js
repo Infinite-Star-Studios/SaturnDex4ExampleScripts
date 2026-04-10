@@ -10,7 +10,7 @@
  * No witness / signing required.
  */
 
-const { PhantasmaAPI, ScriptBuilder, Decoder } = require("phantasma-sdk-ts");
+const { PhantasmaAPI, ScriptBuilder, Decoder, Address } = require("phantasma-sdk-ts");
 
 const RPC_URL  = "https://devnet.phantasma.info/rpc";
 const NEXUS    = "testnet";
@@ -19,26 +19,28 @@ const CONTRACT = "saturnrewards";
 
 const rpc = new PhantasmaAPI(RPC_URL, undefined, NEXUS);
 
-function looksLikeHex(str) {
-  return typeof str === "string" && /^[0-9a-fA-F]+$/.test(str) && str.length % 2 === 0;
+function tryConvertAddress(hex) {
+  if (typeof hex !== "string" || hex.length !== 70) return null;
+  const lenByte = parseInt(hex.substring(0, 2), 16);
+  if (lenByte !== 34) return null;
+  const addrHex = hex.substring(2);
+  const kindByte = parseInt(addrHex.substring(0, 2), 16);
+  if (kindByte < 1 || kindByte > 3) return null;
+  try {
+    const bytes = Uint8Array.from(Buffer.from(addrHex, "hex"));
+    return Address.FromBytes(bytes).Text;
+  } catch { return null; }
 }
 
 function normalizeDecoded(value) {
   if (value == null) return value;
-  if (typeof value === "string") return value;
+  if (typeof value === "string") {
+    const addr = tryConvertAddress(value);
+    if (addr) return addr;
+    return value;
+  }
   if (value.Text) return value.Text;
   if (typeof value.toString === "function") return value.toString();
-  return value;
-}
-
-function decodeNestedVmResult(hex) {
-  let value = new Decoder(hex).readVmObject();
-  value = normalizeDecoded(value);
-  if (looksLikeHex(value)) {
-    let inner = new Decoder(value).readVmObject();
-    inner = normalizeDecoded(inner);
-    return inner;
-  }
   return value;
 }
 
@@ -47,11 +49,11 @@ function decodeResult(res) {
   if (Array.isArray(res.results)) {
     return res.results.map((hex) => {
       if (!hex || typeof hex !== "string") return hex;
-      try { return decodeNestedVmResult(hex); } catch { return hex; }
+      try { return normalizeDecoded(new Decoder(hex).readVmObject()); } catch { return hex; }
     });
   }
   if (res.result) {
-    try { return decodeNestedVmResult(res.result); } catch { return res.result; }
+    try { return normalizeDecoded(new Decoder(res.result).readVmObject()); } catch { return res.result; }
   }
   return res;
 }
