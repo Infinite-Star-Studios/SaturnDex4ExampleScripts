@@ -56,11 +56,11 @@ async function main() {
   // Edit the placeholders below to suit your call.
   const args = [
     keys.Address,  // from: address
-    0  /* REPLACE: amount/id */,  // poolId: number
-    0  /* REPLACE: amount/id */,  // amountIn: number
-    "REPLACE_tokenIn",  // tokenIn: string
-    "REPLACE_tokenOut",  // tokenOut: string
-    0  /* REPLACE: amount/id */,  // minAmountOut: number
+    2  /* REPLACE: amount/id */,  // poolId: number
+    1000000000000  /* REPLACE: amount/id */,  // amountIn: number
+    "KCAL",  // tokenIn: string
+    "SOUL",  // tokenOut: string
+    100000000  /* REPLACE: amount/id */,  // minAmountOut: number
   ];
 
   const sb = new ScriptBuilder();

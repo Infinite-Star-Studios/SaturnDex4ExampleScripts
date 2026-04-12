@@ -64,7 +64,7 @@ async function main() {
   console.log("=".repeat(60));
 
   const args = [
-  0  /* REPLACE: id */,  // poolId: number
+  2  /* REPLACE: id */,  // poolId: number
 ];
 
   const sb = new ScriptBuilder();

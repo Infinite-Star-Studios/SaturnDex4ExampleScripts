@@ -64,8 +64,8 @@ async function main() {
   console.log("=".repeat(60));
 
   const args = [
-  0  /* REPLACE: id */,  // poolId: number
-  "REPLACE_tokenSymbol",  // tokenSymbol: string
+  2  /* REPLACE: id */,  // poolId: number
+  "SOUL",  // tokenSymbol: string
 ];
 
   const sb = new ScriptBuilder();
