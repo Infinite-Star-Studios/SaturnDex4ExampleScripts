@@ -56,9 +56,9 @@ async function main() {
   // Edit the placeholders below to suit your call.
   const args = [
     keys.Address,  // from: address
-    0  /* REPLACE: amount/id */,  // poolId: number
-    0  /* REPLACE: amount/id */,  // amountTokenA: number
-    0  /* REPLACE: amount/id */,  // maxAmountTokenB: number
+    2  /* REPLACE: amount/id */,  // poolId: number
+    10000000000000  /* REPLACE: amount/id */,  // amountTokenA: number
+    100000000000  /* REPLACE: amount/id */,  // maxAmountTokenB: number
   ];
 
   const sb = new ScriptBuilder();

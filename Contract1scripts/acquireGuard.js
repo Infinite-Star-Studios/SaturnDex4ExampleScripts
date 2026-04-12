@@ -55,7 +55,7 @@ async function main() {
   // Build the argument list for the contract call.
   // Edit the placeholders below to suit your call.
   const args = [
-    Address.FromText("P2K...REPLACE_ME"),  // user: address
+    Address.FromText("P2KGPyCE8Zx7cJEcAqzgEGfTmNNZexHDqKp38gRJVQCTdjH"),  // user: address
   ];
 
   const sb = new ScriptBuilder();

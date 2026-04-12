@@ -2,9 +2,9 @@
 "use strict";
 
 /**
- * getGuardLocked.js
+ * getContractTokenBalanceEach.js
  *
- * Read-only call to saturnadmin.getGuardLocked() (1_AdminConfig.tomb).
+ * Read-only call to saturnliquidity.getContractTokenBalanceEach() (2_PoolRegistry.tomb).
  * Returns: number
  *
  * No witness / signing required.
@@ -15,7 +15,7 @@ const { PhantasmaAPI, ScriptBuilder, Decoder, Address } = require("phantasma-sdk
 const RPC_URL  = "https://devnet.phantasma.info/rpc";
 const NEXUS    = "testnet";
 const CHAIN    = "main";
-const CONTRACT = "saturnadmin";
+const CONTRACT = "saturnliquidity";
 
 const rpc = new PhantasmaAPI(RPC_URL, undefined, NEXUS);
 
@@ -60,16 +60,16 @@ function decodeResult(res) {
 
 async function main() {
   console.log("=".repeat(60));
-  console.log("  saturnadmin.getGuardLocked");
+  console.log("  saturnliquidity.getContractTokenBalanceEach");
   console.log("=".repeat(60));
 
   const args = [
-    Address.FromText("P2KGPyCE8Zx7cJEcAqzgEGfTmNNZexHDqKp38gRJVQCTdjH"),
-  ];
+  "SOUL",  // tokenSymbol: string
+];
 
   const sb = new ScriptBuilder();
   sb.BeginScript();
-  sb.CallContract(CONTRACT, "getGuardLocked", args);
+  sb.CallContract(CONTRACT, "getContractTokenBalanceEach", args);
   const script = sb.EndScript();
 
   const res = await rpc.invokeRawScript(CHAIN, script);

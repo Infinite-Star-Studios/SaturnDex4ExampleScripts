@@ -64,8 +64,8 @@ async function main() {
   console.log("=".repeat(60));
 
   const args = [
-  "REPLACE_symbolA",  // symbolA: string
-  "REPLACE_symbolB",  // symbolB: string
+  "SOUL",  // symbolA: string
+  "KCAL",  // symbolB: string
 ];
 
   const sb = new ScriptBuilder();
