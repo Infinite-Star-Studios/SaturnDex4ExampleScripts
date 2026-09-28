@@ -21,6 +21,19 @@ on https://devops.saturnx.cc if you need them.
 - 🧠 For AI agents: https://devops.saturnx.cc/llms.txt
 - 🪐 Saturn app: https://ops.saturnx.cc
 
+## 🔌 Networks
+
+| | Mainnet | Devnet |
+|---|---|---|
+| RPC | `https://pharpc1.phantasma.info/rpc` | `https://devnet.phantasma.info/rpc` |
+| Nexus | `mainnet` | `testnet` |
+| Chain | `main` | `main` |
+| Explorer | https://explorer.phantasma.info | https://devnet-explorer.phantasma.info |
+
+The scripts pick these from `NETWORK`. Note that devnet's nexus name is
+`testnet`: a transaction signed for the wrong nexus is refused. To use your
+own node, set `SATURN_RPC_URL` (it still needs the matching `NETWORK`).
+
 ## Setup
 
 Node.js 18 or newer.
