@@ -2,84 +2,39 @@
 "use strict";
 
 /**
- * executeOrder.js
+ * saturnlimit.executeOrder — write (signed transaction, needs PHANTASMA_WIF)
+ * executeOrder(from: address, orderId: number)
  *
- * Calls saturnlimit.executeOrder() (14_LimitOrders.tomb) as a signed
- * transaction. Fill in the placeholder argument values below before running.
+ * Anyone executes an active, unexpired order and earns its bounty. The order
+ * is marked executed and taken off the active list first; then the escrowed
+ * tokenIn is sent to saturnliquidity and swapped through
+ * saturnswap.swapFromContract on the order's pool with minAmountOut as the
+ * slippage floor. If the pool pays less than minAmountOut, or more than a
+ * non-zero maxAmountOut, the whole transaction reverts and only gas is spent.
+ * The bounty comes from the surplus: bounty = (amountOut − minAmountOut) ×
+ * bountyPer10k / 10000, paid in tokenOut to the executor; the owner receives
+ * amountOut − bounty, never less than minAmountOut. An order filled exactly at
+ * its limit pays no bounty. The owner may execute their own order.
  *
- * Required .env:
- *   PHANTASMA_WIF=<your wif key>
+ * Usage: node Contract14scripts/executeOrder.js <orderId>
+ *   orderId (number): An active order whose expiryTime has not passed.
+ *   from is filled in with your wallet (PHANTASMA_WIF).
+ *   Numbers are raw integer units (1 SOUL = 100000000, 1 KCAL = 10000000000).
+ *   NETWORK=devnet (default) or NETWORK=mainnet.
+ *
+ * Docs: https://devops.saturnx.cc/reference#saturnlimit-executeOrder
  */
 
-const {
-  PhantasmaKeys,
-  ScriptBuilder,
-  Transaction,
-  PhantasmaAPI,
-  Address,
-  Base16,
-} = require("phantasma-sdk-ts");
-const dotenv = require("dotenv");
+const { send } = require("../common");
 
-dotenv.config();
-
-// ─── Config ───────────────────────────────────────────────────────────────────
-const RPC_URL   = "https://devnet.phantasma.info/rpc";
-const NEXUS     = "testnet";
-const CHAIN     = "main";
-const CONTRACT  = "saturnlimit";
-const METHOD    = "executeOrder";
-
-const GAS_PRICE = 100000;
-const GAS_LIMIT = 75000;
-const PAYLOAD   = Base16.encode("DEXv4-executeOrder");
-
-// ─── Wallet ───────────────────────────────────────────────────────────────────
-const WIF = process.env.PHANTASMA_WIF;
-if (!WIF) {
-  console.error("ERROR: PHANTASMA_WIF not set in .env");
-  process.exit(1);
-}
-const keys = PhantasmaKeys.fromWIF(WIF);
-const rpc  = new PhantasmaAPI(RPC_URL, undefined, NEXUS);
-
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-// ─── Main ─────────────────────────────────────────────────────────────────────
-async function main() {
-  console.log("=".repeat(60));
-  console.log("  saturnlimit.executeOrder");
-  console.log("  Wallet:", keys.Address);
-  console.log("=".repeat(60));
-
-  // Build the argument list for the contract call.
-  // Edit the placeholders below to suit your call.
-  const args = [
-    keys.Address,  // from: address
-    0  /* REPLACE: amount/id */,  // orderId: number
-  ];
-
-  const sb = new ScriptBuilder();
-  sb.AllowGas(keys.Address, Address.Null, GAS_PRICE, GAS_LIMIT);
-  sb.CallContract(CONTRACT, METHOD, args);
-  sb.SpendGas(keys.Address);
-  const script = sb.EndScript();
-
-  const expiration = new Date(Date.now() + 5 * 60 * 1000);
-  const tx = new Transaction(NEXUS, CHAIN, script, expiration, PAYLOAD);
-  tx.signWithKeys(keys);
-
-  const txHex = Base16.encodeUint8Array(tx.ToByteAray(true));
-  console.log("Broadcasting...");
-  const txHash = await rpc.sendRawTransaction(txHex);
-  console.log("TX hash :", txHash);
-  console.log("Explorer: https://test-explorer.phantasma.info/tx/" + txHash);
-
-  console.log("\nWaiting 6s for confirmation...");
-  await sleep(6000);
-  const result = await rpc.getTransaction(txHash);
-  console.log("\nResult:", JSON.stringify(result, null, 2));
-  console.log(result?.state === "Halt" ? "\nSUCCESS" : "\nMay have failed — check above");
-}
-
-main().catch(err => { console.error("FATAL:", err); process.exit(1); });
+send({
+  file: "Contract14scripts/executeOrder.js",
+  contract: "saturnlimit",
+  method: "executeOrder",
+  params: [
+    { name: "from", type: "address", desc: "Executor — any signer (witness). Does not need to own the order; receives the bounty." },
+    { name: "orderId", type: "number", desc: "An active order whose expiryTime has not passed." },
+  ],
+  walletIndex: 0,
+  docs: "https://devops.saturnx.cc/reference#saturnlimit-executeOrder",
+});

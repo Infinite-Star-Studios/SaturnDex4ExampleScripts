@@ -2,81 +2,31 @@
 "use strict";
 
 /**
- * getSOULfeeCreatePool.js
+ * saturnadmin.getSOULfeeCreatePool — read (free, no wallet)
+ * getSOULfeeCreatePool(): number
  *
- * Read-only call to saturnadmin.getSOULfeeCreatePool() (1_AdminConfig.tomb).
- * Returns: number
+ * Always returns 0. The SOUL storage fee that createPool() used to charge was
+ * removed; the method is kept so older integrations keep working. Do not
+ * budget SOUL for pool creation because of this value — the one notable extra
+ * cost of createPool() is the gas burned to mint the SATURN certificate NFT
+ * (about 2,500 KCAL).
  *
- * No witness / signing required.
+ * Returns number: Always 0.
+ *
+ * Usage: node Contract1scripts/getSOULfeeCreatePool.js
+ *   Numbers are raw integer units (1 SOUL = 100000000, 1 KCAL = 10000000000).
+ *   NETWORK=devnet (default) or NETWORK=mainnet.
+ *
+ * Docs: https://devops.saturnx.cc/reference#saturnadmin-getSOULfeeCreatePool
  */
 
-const { PhantasmaAPI, ScriptBuilder, Decoder, Address } = require("phantasma-sdk-ts");
+const { read } = require("../common");
 
-const RPC_URL  = "https://devnet.phantasma.info/rpc";
-const NEXUS    = "testnet";
-const CHAIN    = "main";
-const CONTRACT = "saturnadmin";
-
-const rpc = new PhantasmaAPI(RPC_URL, undefined, NEXUS);
-
-function tryConvertAddress(hex) {
-  if (typeof hex !== "string" || hex.length !== 70) return null;
-  const lenByte = parseInt(hex.substring(0, 2), 16);
-  if (lenByte !== 34) return null;
-  const addrHex = hex.substring(2);
-  const kindByte = parseInt(addrHex.substring(0, 2), 16);
-  if (kindByte < 1 || kindByte > 3) return null;
-  try {
-    const bytes = Uint8Array.from(Buffer.from(addrHex, "hex"));
-    return Address.FromBytes(bytes).Text;
-  } catch { return null; }
-}
-
-function normalizeDecoded(value) {
-  if (value == null) return value;
-  if (typeof value === "string") {
-    const addr = tryConvertAddress(value);
-    if (addr) return addr;
-    return value;
-  }
-  if (value.Text) return value.Text;
-  if (typeof value.toString === "function") return value.toString();
-  return value;
-}
-
-function decodeResult(res) {
-  if (!res) return null;
-  if (Array.isArray(res.results)) {
-    return res.results.map((hex) => {
-      if (!hex || typeof hex !== "string") return hex;
-      try { return normalizeDecoded(new Decoder(hex).readVmObject()); } catch { return hex; }
-    });
-  }
-  if (res.result) {
-    try { return normalizeDecoded(new Decoder(res.result).readVmObject()); } catch { return res.result; }
-  }
-  return res;
-}
-
-async function main() {
-  console.log("=".repeat(60));
-  console.log("  saturnadmin.getSOULfeeCreatePool");
-  console.log("=".repeat(60));
-
-  const args = [];
-
-  const sb = new ScriptBuilder();
-  sb.BeginScript();
-  sb.CallContract(CONTRACT, "getSOULfeeCreatePool", args);
-  const script = sb.EndScript();
-
-  const res = await rpc.invokeRawScript(CHAIN, script);
-  if (res && res.error) {
-    console.error("ERROR:", res.error);
-    process.exit(1);
-  }
-  console.log("decoded:", JSON.stringify(decodeResult(res), null, 2));
-  console.log("raw    :", JSON.stringify(res));
-}
-
-main().catch(err => { console.error("FATAL:", err); process.exit(1); });
+read({
+  file: "Contract1scripts/getSOULfeeCreatePool.js",
+  contract: "saturnadmin",
+  method: "getSOULfeeCreatePool",
+  params: [
+  ],
+  docs: "https://devops.saturnx.cc/reference#saturnadmin-getSOULfeeCreatePool",
+});

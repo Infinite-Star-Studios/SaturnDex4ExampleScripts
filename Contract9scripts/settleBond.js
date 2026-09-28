@@ -2,84 +2,37 @@
 "use strict";
 
 /**
- * settleBond.js
+ * saturnbonds.settleBond — write (signed transaction, needs PHANTASMA_WIF)
+ * settleBond(from: address, bondId: number)
  *
- * Calls saturnbonds.settleBond() (9_BondMarket.tomb) as a signed
- * transaction. Fill in the placeholder argument values below before running.
+ * Called any time after the bond's maturity. Claims the pool's unclaimed
+ * feeToken fees (all of them, including any the provider left unclaimed before
+ * the purchase), adds the collateral in hybrid mode, pays min(total,
+ * faceValue) to the bond holder, returns any excess to the original issuer,
+ * clears the fee redirect, and unlocks the pool. Anyone can call this — in
+ * practice the holder does because they want their payout.
  *
- * Required .env:
- *   PHANTASMA_WIF=<your wif key>
+ * Returns void: Success = bond status = 2 (settled) and pool unlocked.
+ *
+ * Usage: node Contract9scripts/settleBond.js <bondId>
+ *   bondId (number): Bond to settle.
+ *   from is filled in with your wallet (PHANTASMA_WIF).
+ *   Numbers are raw integer units (1 SOUL = 100000000, 1 KCAL = 10000000000).
+ *   NETWORK=devnet (default) or NETWORK=mainnet.
+ *
+ * Docs: https://devops.saturnx.cc/reference#saturnbonds-settleBond
  */
 
-const {
-  PhantasmaKeys,
-  ScriptBuilder,
-  Transaction,
-  PhantasmaAPI,
-  Address,
-  Base16,
-} = require("phantasma-sdk-ts");
-const dotenv = require("dotenv");
+const { send } = require("../common");
 
-dotenv.config();
-
-// ─── Config ───────────────────────────────────────────────────────────────────
-const RPC_URL   = "https://devnet.phantasma.info/rpc";
-const NEXUS     = "testnet";
-const CHAIN     = "main";
-const CONTRACT  = "saturnbonds";
-const METHOD    = "settleBond";
-
-const GAS_PRICE = 100000;
-const GAS_LIMIT = 75000;
-const PAYLOAD   = Base16.encode("DEXv4-settleBond");
-
-// ─── Wallet ───────────────────────────────────────────────────────────────────
-const WIF = process.env.PHANTASMA_WIF;
-if (!WIF) {
-  console.error("ERROR: PHANTASMA_WIF not set in .env");
-  process.exit(1);
-}
-const keys = PhantasmaKeys.fromWIF(WIF);
-const rpc  = new PhantasmaAPI(RPC_URL, undefined, NEXUS);
-
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-// ─── Main ─────────────────────────────────────────────────────────────────────
-async function main() {
-  console.log("=".repeat(60));
-  console.log("  saturnbonds.settleBond");
-  console.log("  Wallet:", keys.Address);
-  console.log("=".repeat(60));
-
-  // Build the argument list for the contract call.
-  // Edit the placeholders below to suit your call.
-  const args = [
-    keys.Address,  // from: address
-    0  /* REPLACE: amount/id */,  // bondId: number
-  ];
-
-  const sb = new ScriptBuilder();
-  sb.AllowGas(keys.Address, Address.Null, GAS_PRICE, GAS_LIMIT);
-  sb.CallContract(CONTRACT, METHOD, args);
-  sb.SpendGas(keys.Address);
-  const script = sb.EndScript();
-
-  const expiration = new Date(Date.now() + 5 * 60 * 1000);
-  const tx = new Transaction(NEXUS, CHAIN, script, expiration, PAYLOAD);
-  tx.signWithKeys(keys);
-
-  const txHex = Base16.encodeUint8Array(tx.ToByteAray(true));
-  console.log("Broadcasting...");
-  const txHash = await rpc.sendRawTransaction(txHex);
-  console.log("TX hash :", txHash);
-  console.log("Explorer: https://test-explorer.phantasma.info/tx/" + txHash);
-
-  console.log("\nWaiting 6s for confirmation...");
-  await sleep(6000);
-  const result = await rpc.getTransaction(txHash);
-  console.log("\nResult:", JSON.stringify(result, null, 2));
-  console.log(result?.state === "Halt" ? "\nSUCCESS" : "\nMay have failed — check above");
-}
-
-main().catch(err => { console.error("FATAL:", err); process.exit(1); });
+send({
+  file: "Contract9scripts/settleBond.js",
+  contract: "saturnbonds",
+  method: "settleBond",
+  params: [
+    { name: "from", type: "address", desc: "Caller wallet (must be witness; any wallet works)." },
+    { name: "bondId", type: "number", desc: "Bond to settle." },
+  ],
+  walletIndex: 0,
+  docs: "https://devops.saturnx.cc/reference#saturnbonds-settleBond",
+});

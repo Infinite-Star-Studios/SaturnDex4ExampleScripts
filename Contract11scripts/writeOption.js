@@ -2,88 +2,46 @@
 "use strict";
 
 /**
- * writeOption.js
+ * saturnfeeopts.writeOption — write (signed transaction, needs PHANTASMA_WIF)
+ * writeOption(from: address, poolId: number, targetFeePer10k: number, premium: number, premiumToken: string, durationSeconds: number)
  *
- * Calls saturnfeeopts.writeOption() (11_FeeOptions.tomb) as a signed
- * transaction. Fill in the placeholder argument values below before running.
+ * Pool provider creates and lists a new option. The fee to restore is not
+ * captured here: buyOption() records the pool's live fee at purchase, and that
+ * is what releaseOption() / expireOption() restore. The fee at writing only
+ * appears in the OptionWritten event.
  *
- * Required .env:
- *   PHANTASMA_WIF=<your wif key>
+ * Usage: node Contract11scripts/writeOption.js <poolId> <targetFeePer10k> <premium> <premiumToken> <durationSeconds>
+ *   poolId (number): The active pool you own.
+ *   targetFeePer10k (number): Fee rate the buyer can snap the pool to. Per
+ *   10,000. Must sit within saturnadmin.getPoolFeeRange() (30 .. 3000 on
+ *   mainnet).
+ *   premium (number): Up-front price the buyer pays, in raw premiumToken
+ *   units. Must be > 0.
+ *   premiumToken (string): Token symbol the premium is paid in. Must be a
+ *   validated symbol.
+ *   durationSeconds (number): Option window in seconds once bought. Must be
+ *   between 3,600 (1h) and 2,592,000 (30d).
+ *   from is filled in with your wallet (PHANTASMA_WIF).
+ *   Numbers are raw integer units (1 SOUL = 100000000, 1 KCAL = 10000000000).
+ *   NETWORK=devnet (default) or NETWORK=mainnet.
+ *
+ * Docs: https://devops.saturnx.cc/reference#saturnfeeopts-writeOption
  */
 
-const {
-  PhantasmaKeys,
-  ScriptBuilder,
-  Transaction,
-  PhantasmaAPI,
-  Address,
-  Base16,
-} = require("phantasma-sdk-ts");
-const dotenv = require("dotenv");
+const { send } = require("../common");
 
-dotenv.config();
-
-// ─── Config ───────────────────────────────────────────────────────────────────
-const RPC_URL   = "https://devnet.phantasma.info/rpc";
-const NEXUS     = "testnet";
-const CHAIN     = "main";
-const CONTRACT  = "saturnfeeopts";
-const METHOD    = "writeOption";
-
-const GAS_PRICE = 100000;
-const GAS_LIMIT = 75000;
-const PAYLOAD   = Base16.encode("DEXv4-writeOption");
-
-// ─── Wallet ───────────────────────────────────────────────────────────────────
-const WIF = process.env.PHANTASMA_WIF;
-if (!WIF) {
-  console.error("ERROR: PHANTASMA_WIF not set in .env");
-  process.exit(1);
-}
-const keys = PhantasmaKeys.fromWIF(WIF);
-const rpc  = new PhantasmaAPI(RPC_URL, undefined, NEXUS);
-
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-// ─── Main ─────────────────────────────────────────────────────────────────────
-async function main() {
-  console.log("=".repeat(60));
-  console.log("  saturnfeeopts.writeOption");
-  console.log("  Wallet:", keys.Address);
-  console.log("=".repeat(60));
-
-  // Build the argument list for the contract call.
-  // Edit the placeholders below to suit your call.
-  const args = [
-    keys.Address,  // from: address
-    0  /* REPLACE: amount/id */,  // poolId: number
-    0  /* REPLACE: amount/id */,  // targetFeePer10k: number
-    0  /* REPLACE: amount/id */,  // premium: number
-    "REPLACE_premiumToken",  // premiumToken: string
-    0  /* REPLACE: amount/id */,  // durationSeconds: number
-  ];
-
-  const sb = new ScriptBuilder();
-  sb.AllowGas(keys.Address, Address.Null, GAS_PRICE, GAS_LIMIT);
-  sb.CallContract(CONTRACT, METHOD, args);
-  sb.SpendGas(keys.Address);
-  const script = sb.EndScript();
-
-  const expiration = new Date(Date.now() + 5 * 60 * 1000);
-  const tx = new Transaction(NEXUS, CHAIN, script, expiration, PAYLOAD);
-  tx.signWithKeys(keys);
-
-  const txHex = Base16.encodeUint8Array(tx.ToByteAray(true));
-  console.log("Broadcasting...");
-  const txHash = await rpc.sendRawTransaction(txHex);
-  console.log("TX hash :", txHash);
-  console.log("Explorer: https://test-explorer.phantasma.info/tx/" + txHash);
-
-  console.log("\nWaiting 6s for confirmation...");
-  await sleep(6000);
-  const result = await rpc.getTransaction(txHash);
-  console.log("\nResult:", JSON.stringify(result, null, 2));
-  console.log(result?.state === "Halt" ? "\nSUCCESS" : "\nMay have failed — check above");
-}
-
-main().catch(err => { console.error("FATAL:", err); process.exit(1); });
+send({
+  file: "Contract11scripts/writeOption.js",
+  contract: "saturnfeeopts",
+  method: "writeOption",
+  params: [
+    { name: "from", type: "address", desc: "Pool provider — must be a transaction witness." },
+    { name: "poolId", type: "number", desc: "The active pool you own." },
+    { name: "targetFeePer10k", type: "number", desc: "Fee rate the buyer can snap the pool to. Per 10,000. Must sit within saturnadmin.getPoolFeeRange() (30 .. 3000 on mainnet)." },
+    { name: "premium", type: "number", desc: "Up-front price the buyer pays, in raw premiumToken units. Must be > 0." },
+    { name: "premiumToken", type: "string", desc: "Token symbol the premium is paid in. Must be a validated symbol." },
+    { name: "durationSeconds", type: "number", desc: "Option window in seconds once bought. Must be between 3,600 (1h) and 2,592,000 (30d)." },
+  ],
+  walletIndex: 0,
+  docs: "https://devops.saturnx.cc/reference#saturnfeeopts-writeOption",
+});

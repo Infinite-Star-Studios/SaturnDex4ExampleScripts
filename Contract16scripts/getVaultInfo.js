@@ -2,83 +2,32 @@
 "use strict";
 
 /**
- * getVaultInfo.js
+ * saturnvaults.getVaultInfo — read (free, no wallet)
+ * getVaultInfo(vaultId: number): string
  *
- * Read-only call to saturnvaults.getVaultInfo() (16_AgentVaults.tomb).
- * Returns: string
+ * Legacy one-string snapshot, layout unchanged since 4.1.x. The hwm field is
+ * no longer used (it stays at 10000). Use getVaultStats for the full 4.2.0
+ * picture.
  *
- * No witness / signing required.
+ * Returns string: base:<symbol>_deposits:<raw>_shares:<total>_hwm:<legacy,
+ * unused>_perfFee:<per10k>_status:<0|1>
+ *
+ * Usage: node Contract16scripts/getVaultInfo.js <vaultId>
+ *   vaultId (number): The vault to inspect.
+ *   Numbers are raw integer units (1 SOUL = 100000000, 1 KCAL = 10000000000).
+ *   NETWORK=devnet (default) or NETWORK=mainnet.
+ *
+ * Docs: https://devops.saturnx.cc/reference#saturnvaults-getVaultInfo
  */
 
-const { PhantasmaAPI, ScriptBuilder, Decoder, Address } = require("phantasma-sdk-ts");
+const { read } = require("../common");
 
-const RPC_URL  = "https://devnet.phantasma.info/rpc";
-const NEXUS    = "testnet";
-const CHAIN    = "main";
-const CONTRACT = "saturnvaults";
-
-const rpc = new PhantasmaAPI(RPC_URL, undefined, NEXUS);
-
-function tryConvertAddress(hex) {
-  if (typeof hex !== "string" || hex.length !== 70) return null;
-  const lenByte = parseInt(hex.substring(0, 2), 16);
-  if (lenByte !== 34) return null;
-  const addrHex = hex.substring(2);
-  const kindByte = parseInt(addrHex.substring(0, 2), 16);
-  if (kindByte < 1 || kindByte > 3) return null;
-  try {
-    const bytes = Uint8Array.from(Buffer.from(addrHex, "hex"));
-    return Address.FromBytes(bytes).Text;
-  } catch { return null; }
-}
-
-function normalizeDecoded(value) {
-  if (value == null) return value;
-  if (typeof value === "string") {
-    const addr = tryConvertAddress(value);
-    if (addr) return addr;
-    return value;
-  }
-  if (value.Text) return value.Text;
-  if (typeof value.toString === "function") return value.toString();
-  return value;
-}
-
-function decodeResult(res) {
-  if (!res) return null;
-  if (Array.isArray(res.results)) {
-    return res.results.map((hex) => {
-      if (!hex || typeof hex !== "string") return hex;
-      try { return normalizeDecoded(new Decoder(hex).readVmObject()); } catch { return hex; }
-    });
-  }
-  if (res.result) {
-    try { return normalizeDecoded(new Decoder(res.result).readVmObject()); } catch { return res.result; }
-  }
-  return res;
-}
-
-async function main() {
-  console.log("=".repeat(60));
-  console.log("  saturnvaults.getVaultInfo");
-  console.log("=".repeat(60));
-
-  const args = [
-  0  /* REPLACE: id */,  // vaultId: number
-];
-
-  const sb = new ScriptBuilder();
-  sb.BeginScript();
-  sb.CallContract(CONTRACT, "getVaultInfo", args);
-  const script = sb.EndScript();
-
-  const res = await rpc.invokeRawScript(CHAIN, script);
-  if (res && res.error) {
-    console.error("ERROR:", res.error);
-    process.exit(1);
-  }
-  console.log("decoded:", JSON.stringify(decodeResult(res), null, 2));
-  console.log("raw    :", JSON.stringify(res));
-}
-
-main().catch(err => { console.error("FATAL:", err); process.exit(1); });
+read({
+  file: "Contract16scripts/getVaultInfo.js",
+  contract: "saturnvaults",
+  method: "getVaultInfo",
+  params: [
+    { name: "vaultId", type: "number", desc: "The vault to inspect." },
+  ],
+  docs: "https://devops.saturnx.cc/reference#saturnvaults-getVaultInfo",
+});

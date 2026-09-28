@@ -2,84 +2,44 @@
 "use strict";
 
 /**
- * removePool.js
+ * saturnliquidity.removePool — write (signed transaction, needs PHANTASMA_WIF)
+ * removePool(from: address, poolId: number)
  *
- * Calls saturnliquidity.removePool() (3_LiquidityManager.tomb) as a signed
- * transaction. Fill in the placeholder argument values below before running.
+ * Removes a pool entirely. Both reserves are paid out in raw units together
+ * with the pool's pending provider fees, the pool is deactivated, and its
+ * SATURN certificate is burned if the caller holds it (otherwise the
+ * certificate is left alone). The caller must hold the pool's SATURN
+ * certificate or be its provider (saturnpools.getPoolProvider). Since
+ * saturnpools 4.1.10 a certificate transfer also makes the new holder the
+ * provider, so a seller loses the right to remove the pool; the provider route
+ * remains so a pool whose certificate was destroyed can still be withdrawn.
+ * The pool cannot be removed while it is enrolled in a reward campaign, held
+ * by any financial product (bond, rental, fee option, syndicate, launchpad or
+ * loan pledge), or burned or time-locked through saturnlplock.
  *
- * Required .env:
- *   PHANTASMA_WIF=<your wif key>
+ * Returns void: Success = pool marked inactive and tokens returned. Emits
+ * PoolRemoved(poolId, returnedA, returnedB, returnedPendingA,
+ * returnedPendingB) in raw units.
+ *
+ * Usage: node Contract3scripts/removePool.js <poolId>
+ *   poolId (number): Pool to remove.
+ *   from is filled in with your wallet (PHANTASMA_WIF).
+ *   Numbers are raw integer units (1 SOUL = 100000000, 1 KCAL = 10000000000).
+ *   NETWORK=devnet (default) or NETWORK=mainnet.
+ *
+ * Docs: https://devops.saturnx.cc/reference#saturnliquidity-removePool
  */
 
-const {
-  PhantasmaKeys,
-  ScriptBuilder,
-  Transaction,
-  PhantasmaAPI,
-  Address,
-  Base16,
-} = require("phantasma-sdk-ts");
-const dotenv = require("dotenv");
+const { send } = require("../common");
 
-dotenv.config();
-
-// ─── Config ───────────────────────────────────────────────────────────────────
-const RPC_URL   = "https://devnet.phantasma.info/rpc";
-const NEXUS     = "testnet";
-const CHAIN     = "main";
-const CONTRACT  = "saturnliquidity";
-const METHOD    = "removePool";
-
-const GAS_PRICE = 100000;
-const GAS_LIMIT = 75000;
-const PAYLOAD   = Base16.encode("DEXv4-removePool");
-
-// ─── Wallet ───────────────────────────────────────────────────────────────────
-const WIF = process.env.PHANTASMA_WIF;
-if (!WIF) {
-  console.error("ERROR: PHANTASMA_WIF not set in .env");
-  process.exit(1);
-}
-const keys = PhantasmaKeys.fromWIF(WIF);
-const rpc  = new PhantasmaAPI(RPC_URL, undefined, NEXUS);
-
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-// ─── Main ─────────────────────────────────────────────────────────────────────
-async function main() {
-  console.log("=".repeat(60));
-  console.log("  saturnliquidity.removePool");
-  console.log("  Wallet:", keys.Address);
-  console.log("=".repeat(60));
-
-  // Build the argument list for the contract call.
-  // Edit the placeholders below to suit your call.
-  const args = [
-    keys.Address,  // from: address
-    1  /* REPLACE: amount/id */,  // poolId: number
-  ];
-
-  const sb = new ScriptBuilder();
-  sb.AllowGas(keys.Address, Address.Null, GAS_PRICE, GAS_LIMIT);
-  sb.CallContract(CONTRACT, METHOD, args);
-  sb.SpendGas(keys.Address);
-  const script = sb.EndScript();
-
-  const expiration = new Date(Date.now() + 5 * 60 * 1000);
-  const tx = new Transaction(NEXUS, CHAIN, script, expiration, PAYLOAD);
-  tx.signWithKeys(keys);
-
-  const txHex = Base16.encodeUint8Array(tx.ToByteAray(true));
-  console.log("Broadcasting...");
-  const txHash = await rpc.sendRawTransaction(txHex);
-  console.log("TX hash :", txHash);
-  console.log("Explorer: https://test-explorer.phantasma.info/tx/" + txHash);
-
-  console.log("\nWaiting 6s for confirmation...");
-  await sleep(6000);
-  const result = await rpc.getTransaction(txHash);
-  console.log("\nResult:", JSON.stringify(result, null, 2));
-  console.log(result?.state === "Halt" ? "\nSUCCESS" : "\nMay have failed — check above");
-}
-
-main().catch(err => { console.error("FATAL:", err); process.exit(1); });
+send({
+  file: "Contract3scripts/removePool.js",
+  contract: "saturnliquidity",
+  method: "removePool",
+  params: [
+    { name: "from", type: "address", desc: "Certificate holder or pool provider (must be witness); receives the payout." },
+    { name: "poolId", type: "number", desc: "Pool to remove." },
+  ],
+  walletIndex: 0,
+  docs: "https://devops.saturnx.cc/reference#saturnliquidity-removePool",
+});
