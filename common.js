@@ -33,7 +33,7 @@ require("dotenv").config();
 
 const NETWORKS = {
   mainnet: { rpc: "https://pharpc1.phantasma.info/rpc", nexus: "mainnet", explorer: "https://explorer.phantasma.info/tx/" },
-  devnet: { rpc: "https://devnet.phantasma.info/rpc", nexus: "testnet", explorer: "https://test-explorer.phantasma.info/tx/" },
+  devnet: { rpc: "https://devnet.phantasma.info/rpc", nexus: "testnet", explorer: "https://devnet-explorer.phantasma.info/tx/" },
 };
 const NETWORK = (process.env.NETWORK || "devnet").toLowerCase();
 if (!NETWORKS[NETWORK]) {
