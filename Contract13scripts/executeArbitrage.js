@@ -2,88 +2,58 @@
 "use strict";
 
 /**
- * executeArbitrage.js
+ * saturnarb.executeArbitrage — write (signed transaction, needs PHANTASMA_WIF)
+ * executeArbitrage(from: address, poolIdBuy: number, poolIdSell: number, tokenStart: string, amountIn: number, minProfit: number)
  *
- * Calls saturnarb.executeArbitrage() (13_FlashArbitrage.tomb) as a signed
- * transaction. Fill in the placeholder argument values below before running.
+ * Atomic two-hop arbitrage. Swaps amountIn of tokenStart into the intermediate
+ * token on poolIdBuy (where the intermediate token is cheapest in tokenStart),
+ * then swaps the intermediate back to tokenStart on poolIdSell (where it is
+ * dearest). The intermediate token is inferred from poolIdBuy — whichever side
+ * isn't tokenStart. Both pools must contain the exact same pair. On success
+ * the whole finalAmount (your capital plus the entire profit) is returned to
+ * you; the protocol takes nothing beyond the normal swap fees inside each
+ * pool.
  *
- * Required .env:
- *   PHANTASMA_WIF=<your wif key>
+ * Usage: node Contract13scripts/executeArbitrage.js <poolIdBuy> <poolIdSell> <tokenStart> <amountIn> <minProfit>
+ *   poolIdBuy (number): Pool where the intermediate token is cheap:
+ *   tokenStart buys the most of it here (the highest
+ *   saturnrouter.getPoolPrice(poolId, tokenStart)). The first hop swaps
+ *   tokenStart into the intermediate token here.
+ *   poolIdSell (number): Pool where the intermediate token is dear:
+ *   tokenStart buys the least of it here (the lowest getPoolPrice(poolId,
+ *   tokenStart)). The second hop swaps the intermediate back to tokenStart
+ *   here. Must share the same pair as poolIdBuy and must be different from
+ *   it.
+ *   tokenStart (string): Token you provide and receive back. Must be one of
+ *   the two tokens in both pools.
+ *   amountIn (number): Raw amount of tokenStart to commit to the arb. Must
+ *   be > 0, <= your wallet balance, and large enough that each leg clears
+ *   saturnrouter.getMinRawForSwap() for its input token.
+ *   minProfit (number): Minimum acceptable profit (finalAmount − amountIn)
+ *   in raw tokenStart units, checked as profit >= minProfit; the transaction
+ *   reverts with 'Profit below minimum' if not met. Gas is paid in KCAL, so
+ *   convert your gas cost into tokenStart if minProfit should cover it.
+ *   from is filled in with your wallet (PHANTASMA_WIF).
+ *   Numbers are raw integer units (1 SOUL = 100000000, 1 KCAL = 10000000000).
+ *   NETWORK=devnet (default) or NETWORK=mainnet.
+ *
+ * Docs: https://devops.saturnx.cc/reference#saturnarb-executeArbitrage
  */
 
-const {
-  PhantasmaKeys,
-  ScriptBuilder,
-  Transaction,
-  PhantasmaAPI,
-  Address,
-  Base16,
-} = require("phantasma-sdk-ts");
-const dotenv = require("dotenv");
+const { send } = require("../common");
 
-dotenv.config();
-
-// ─── Config ───────────────────────────────────────────────────────────────────
-const RPC_URL   = "https://devnet.phantasma.info/rpc";
-const NEXUS     = "testnet";
-const CHAIN     = "main";
-const CONTRACT  = "saturnarb";
-const METHOD    = "executeArbitrage";
-
-const GAS_PRICE = 100000;
-const GAS_LIMIT = 75000;
-const PAYLOAD   = Base16.encode("DEXv4-executeArbitrage");
-
-// ─── Wallet ───────────────────────────────────────────────────────────────────
-const WIF = process.env.PHANTASMA_WIF;
-if (!WIF) {
-  console.error("ERROR: PHANTASMA_WIF not set in .env");
-  process.exit(1);
-}
-const keys = PhantasmaKeys.fromWIF(WIF);
-const rpc  = new PhantasmaAPI(RPC_URL, undefined, NEXUS);
-
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-// ─── Main ─────────────────────────────────────────────────────────────────────
-async function main() {
-  console.log("=".repeat(60));
-  console.log("  saturnarb.executeArbitrage");
-  console.log("  Wallet:", keys.Address);
-  console.log("=".repeat(60));
-
-  // Build the argument list for the contract call.
-  // Edit the placeholders below to suit your call.
-  const args = [
-    keys.Address,  // from: address
-    0  /* REPLACE: amount/id */,  // poolIdBuy: number
-    0  /* REPLACE: amount/id */,  // poolIdSell: number
-    "REPLACE_tokenStart",  // tokenStart: string
-    0  /* REPLACE: amount/id */,  // amountIn: number
-    0  /* REPLACE: amount/id */,  // minProfit: number
-  ];
-
-  const sb = new ScriptBuilder();
-  sb.AllowGas(keys.Address, Address.Null, GAS_PRICE, GAS_LIMIT);
-  sb.CallContract(CONTRACT, METHOD, args);
-  sb.SpendGas(keys.Address);
-  const script = sb.EndScript();
-
-  const expiration = new Date(Date.now() + 5 * 60 * 1000);
-  const tx = new Transaction(NEXUS, CHAIN, script, expiration, PAYLOAD);
-  tx.signWithKeys(keys);
-
-  const txHex = Base16.encodeUint8Array(tx.ToByteAray(true));
-  console.log("Broadcasting...");
-  const txHash = await rpc.sendRawTransaction(txHex);
-  console.log("TX hash :", txHash);
-  console.log("Explorer: https://test-explorer.phantasma.info/tx/" + txHash);
-
-  console.log("\nWaiting 6s for confirmation...");
-  await sleep(6000);
-  const result = await rpc.getTransaction(txHash);
-  console.log("\nResult:", JSON.stringify(result, null, 2));
-  console.log(result?.state === "Halt" ? "\nSUCCESS" : "\nMay have failed — check above");
-}
-
-main().catch(err => { console.error("FATAL:", err); process.exit(1); });
+send({
+  file: "Contract13scripts/executeArbitrage.js",
+  contract: "saturnarb",
+  method: "executeArbitrage",
+  params: [
+    { name: "from", type: "address", desc: "Executor address — must be a witness and must hold amountIn of tokenStart." },
+    { name: "poolIdBuy", type: "number", desc: "Pool where the intermediate token is cheap: tokenStart buys the most of it here (the highest saturnrouter.getPoolPrice(poolId, tokenStart)). The first hop sw..." },
+    { name: "poolIdSell", type: "number", desc: "Pool where the intermediate token is dear: tokenStart buys the least of it here (the lowest getPoolPrice(poolId, tokenStart)). The second hop swaps the inter..." },
+    { name: "tokenStart", type: "string", desc: "Token you provide and receive back. Must be one of the two tokens in both pools." },
+    { name: "amountIn", type: "number", desc: "Raw amount of tokenStart to commit to the arb. Must be > 0, <= your wallet balance, and large enough that each leg clears saturnrouter.getMinRawForSwap() for..." },
+    { name: "minProfit", type: "number", desc: "Minimum acceptable profit (finalAmount − amountIn) in raw tokenStart units, checked as profit >= minProfit; the transaction reverts with 'Profit below minimu..." },
+  ],
+  walletIndex: 0,
+  docs: "https://devops.saturnx.cc/reference#saturnarb-executeArbitrage",
+});

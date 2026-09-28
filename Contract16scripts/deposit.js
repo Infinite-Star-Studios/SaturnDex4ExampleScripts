@@ -2,85 +2,38 @@
 "use strict";
 
 /**
- * deposit.js
+ * saturnvaults.deposit — write (signed transaction, needs PHANTASMA_WIF)
+ * deposit(from: address, vaultId: number, amount: number)
  *
- * Calls saturnvaults.deposit() (16_AgentVaults.tomb) as a signed
- * transaction. Fill in the placeholder argument values below before running.
+ * Deposits the vault's base token and mints shares at the current share price.
+ * The first deposit into an empty vault mints amount × 10,000 shares (share
+ * price 1.0); later deposits mint amount × totalShares / totalDeposits. Every
+ * deposit restarts the depositor's hold time for the whole position, so a
+ * top-up locks the older shares again too. The agent may deposit into its own
+ * vault like anyone else.
  *
- * Required .env:
- *   PHANTASMA_WIF=<your wif key>
+ * Usage: node Contract16scripts/deposit.js <vaultId> <amount>
+ *   vaultId (number): An active vault (status 0).
+ *   amount (number): Raw base token to deposit; must be >=
+ *   getVaultMinDeposit(vaultId).
+ *   from is filled in with your wallet (PHANTASMA_WIF).
+ *   Numbers are raw integer units (1 SOUL = 100000000, 1 KCAL = 10000000000).
+ *   NETWORK=devnet (default) or NETWORK=mainnet.
+ *
+ * Docs: https://devops.saturnx.cc/reference#saturnvaults-deposit
  */
 
-const {
-  PhantasmaKeys,
-  ScriptBuilder,
-  Transaction,
-  PhantasmaAPI,
-  Address,
-  Base16,
-} = require("phantasma-sdk-ts");
-const dotenv = require("dotenv");
+const { send } = require("../common");
 
-dotenv.config();
-
-// ─── Config ───────────────────────────────────────────────────────────────────
-const RPC_URL   = "https://devnet.phantasma.info/rpc";
-const NEXUS     = "testnet";
-const CHAIN     = "main";
-const CONTRACT  = "saturnvaults";
-const METHOD    = "deposit";
-
-const GAS_PRICE = 100000;
-const GAS_LIMIT = 75000;
-const PAYLOAD   = Base16.encode("DEXv4-deposit");
-
-// ─── Wallet ───────────────────────────────────────────────────────────────────
-const WIF = process.env.PHANTASMA_WIF;
-if (!WIF) {
-  console.error("ERROR: PHANTASMA_WIF not set in .env");
-  process.exit(1);
-}
-const keys = PhantasmaKeys.fromWIF(WIF);
-const rpc  = new PhantasmaAPI(RPC_URL, undefined, NEXUS);
-
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-// ─── Main ─────────────────────────────────────────────────────────────────────
-async function main() {
-  console.log("=".repeat(60));
-  console.log("  saturnvaults.deposit");
-  console.log("  Wallet:", keys.Address);
-  console.log("=".repeat(60));
-
-  // Build the argument list for the contract call.
-  // Edit the placeholders below to suit your call.
-  const args = [
-    keys.Address,  // from: address
-    0  /* REPLACE: amount/id */,  // vaultId: number
-    0  /* REPLACE: amount/id */,  // amount: number
-  ];
-
-  const sb = new ScriptBuilder();
-  sb.AllowGas(keys.Address, Address.Null, GAS_PRICE, GAS_LIMIT);
-  sb.CallContract(CONTRACT, METHOD, args);
-  sb.SpendGas(keys.Address);
-  const script = sb.EndScript();
-
-  const expiration = new Date(Date.now() + 5 * 60 * 1000);
-  const tx = new Transaction(NEXUS, CHAIN, script, expiration, PAYLOAD);
-  tx.signWithKeys(keys);
-
-  const txHex = Base16.encodeUint8Array(tx.ToByteAray(true));
-  console.log("Broadcasting...");
-  const txHash = await rpc.sendRawTransaction(txHex);
-  console.log("TX hash :", txHash);
-  console.log("Explorer: https://test-explorer.phantasma.info/tx/" + txHash);
-
-  console.log("\nWaiting 6s for confirmation...");
-  await sleep(6000);
-  const result = await rpc.getTransaction(txHash);
-  console.log("\nResult:", JSON.stringify(result, null, 2));
-  console.log(result?.state === "Halt" ? "\nSUCCESS" : "\nMay have failed — check above");
-}
-
-main().catch(err => { console.error("FATAL:", err); process.exit(1); });
+send({
+  file: "Contract16scripts/deposit.js",
+  contract: "saturnvaults",
+  method: "deposit",
+  params: [
+    { name: "from", type: "address", desc: "Depositor (witness) holding at least amount of the base token." },
+    { name: "vaultId", type: "number", desc: "An active vault (status 0)." },
+    { name: "amount", type: "number", desc: "Raw base token to deposit; must be >= getVaultMinDeposit(vaultId)." },
+  ],
+  walletIndex: 0,
+  docs: "https://devops.saturnx.cc/reference#saturnvaults-deposit",
+});

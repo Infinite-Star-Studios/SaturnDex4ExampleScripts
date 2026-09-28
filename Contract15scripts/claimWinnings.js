@@ -2,84 +2,37 @@
 "use strict";
 
 /**
- * claimWinnings.js
+ * saturnpredict.claimWinnings — write (signed transaction, needs PHANTASMA_WIF)
+ * claimWinnings(from: address, marketId: number)
  *
- * Calls saturnpredict.claimWinnings() (15_PredictionMarket.tomb) as a signed
- * transaction. Fill in the placeholder argument values below before running.
+ * After endTime, claim your share of the pot. The very first caller on a
+ * still-open market resolves it. If either side has no bets, the market
+ * becomes a refund market (status 4). Otherwise the metric is read live, delta
+ * = max(0, current − snapshot), and status becomes 1 (OVER won, delta >=
+ * threshold) or 2 (UNDER won). The metric is read at that first claim, not at
+ * endTime, so fees earned after endTime still count until someone claims.
+ * Every caller (first or later) then receives their payout once.
  *
- * Required .env:
- *   PHANTASMA_WIF=<your wif key>
+ * Usage: node Contract15scripts/claimWinnings.js <marketId>
+ *   marketId (number): A market whose endTime has passed and which is not
+ *   cancelled (status 3).
+ *   from is filled in with your wallet (PHANTASMA_WIF).
+ *   Numbers are raw integer units (1 SOUL = 100000000, 1 KCAL = 10000000000).
+ *   NETWORK=devnet (default) or NETWORK=mainnet.
+ *
+ * Docs: https://devops.saturnx.cc/reference#saturnpredict-claimWinnings
  */
 
-const {
-  PhantasmaKeys,
-  ScriptBuilder,
-  Transaction,
-  PhantasmaAPI,
-  Address,
-  Base16,
-} = require("phantasma-sdk-ts");
-const dotenv = require("dotenv");
+const { send } = require("../common");
 
-dotenv.config();
-
-// ─── Config ───────────────────────────────────────────────────────────────────
-const RPC_URL   = "https://devnet.phantasma.info/rpc";
-const NEXUS     = "testnet";
-const CHAIN     = "main";
-const CONTRACT  = "saturnpredict";
-const METHOD    = "claimWinnings";
-
-const GAS_PRICE = 100000;
-const GAS_LIMIT = 75000;
-const PAYLOAD   = Base16.encode("DEXv4-claimWinnings");
-
-// ─── Wallet ───────────────────────────────────────────────────────────────────
-const WIF = process.env.PHANTASMA_WIF;
-if (!WIF) {
-  console.error("ERROR: PHANTASMA_WIF not set in .env");
-  process.exit(1);
-}
-const keys = PhantasmaKeys.fromWIF(WIF);
-const rpc  = new PhantasmaAPI(RPC_URL, undefined, NEXUS);
-
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-// ─── Main ─────────────────────────────────────────────────────────────────────
-async function main() {
-  console.log("=".repeat(60));
-  console.log("  saturnpredict.claimWinnings");
-  console.log("  Wallet:", keys.Address);
-  console.log("=".repeat(60));
-
-  // Build the argument list for the contract call.
-  // Edit the placeholders below to suit your call.
-  const args = [
-    keys.Address,  // from: address
-    0  /* REPLACE: amount/id */,  // marketId: number
-  ];
-
-  const sb = new ScriptBuilder();
-  sb.AllowGas(keys.Address, Address.Null, GAS_PRICE, GAS_LIMIT);
-  sb.CallContract(CONTRACT, METHOD, args);
-  sb.SpendGas(keys.Address);
-  const script = sb.EndScript();
-
-  const expiration = new Date(Date.now() + 5 * 60 * 1000);
-  const tx = new Transaction(NEXUS, CHAIN, script, expiration, PAYLOAD);
-  tx.signWithKeys(keys);
-
-  const txHex = Base16.encodeUint8Array(tx.ToByteAray(true));
-  console.log("Broadcasting...");
-  const txHash = await rpc.sendRawTransaction(txHex);
-  console.log("TX hash :", txHash);
-  console.log("Explorer: https://test-explorer.phantasma.info/tx/" + txHash);
-
-  console.log("\nWaiting 6s for confirmation...");
-  await sleep(6000);
-  const result = await rpc.getTransaction(txHash);
-  console.log("\nResult:", JSON.stringify(result, null, 2));
-  console.log(result?.state === "Halt" ? "\nSUCCESS" : "\nMay have failed — check above");
-}
-
-main().catch(err => { console.error("FATAL:", err); process.exit(1); });
+send({
+  file: "Contract15scripts/claimWinnings.js",
+  contract: "saturnpredict",
+  method: "claimWinnings",
+  params: [
+    { name: "from", type: "address", desc: "Caller. Must be a witness and must not have claimed this market before." },
+    { name: "marketId", type: "number", desc: "A market whose endTime has passed and which is not cancelled (status 3)." },
+  ],
+  walletIndex: 0,
+  docs: "https://devops.saturnx.cc/reference#saturnpredict-claimWinnings",
+});

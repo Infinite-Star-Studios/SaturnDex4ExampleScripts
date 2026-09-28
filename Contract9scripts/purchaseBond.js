@@ -2,84 +2,38 @@
 "use strict";
 
 /**
- * purchaseBond.js
+ * saturnbonds.purchaseBond — write (signed transaction, needs PHANTASMA_WIF)
+ * purchaseBond(from: address, bondId: number)
  *
- * Calls saturnbonds.purchaseBond() (9_BondMarket.tomb) as a signed
- * transaction. Fill in the placeholder argument values below before running.
+ * Buyer pays the listing's purchasePrice (raw feeToken) directly to the
+ * issuer, becomes the bond holder, starts the term clock (maturity = now +
+ * durationSeconds), and turns on the pool's fee redirect in saturnfees: the
+ * provider can no longer claim the pool's fees, which are held until
+ * settleBond(). The pool becomes financially locked until settlement. The
+ * listing checks are run again first, since the pool may have changed since
+ * listing.
  *
- * Required .env:
- *   PHANTASMA_WIF=<your wif key>
+ * Returns void: Success = bond status = 1 (active), fees redirected.
+ *
+ * Usage: node Contract9scripts/purchaseBond.js <bondId>
+ *   bondId (number): Bond to purchase.
+ *   from is filled in with your wallet (PHANTASMA_WIF).
+ *   Numbers are raw integer units (1 SOUL = 100000000, 1 KCAL = 10000000000).
+ *   NETWORK=devnet (default) or NETWORK=mainnet.
+ *
+ * Docs: https://devops.saturnx.cc/reference#saturnbonds-purchaseBond
  */
 
-const {
-  PhantasmaKeys,
-  ScriptBuilder,
-  Transaction,
-  PhantasmaAPI,
-  Address,
-  Base16,
-} = require("phantasma-sdk-ts");
-const dotenv = require("dotenv");
+const { send } = require("../common");
 
-dotenv.config();
-
-// ─── Config ───────────────────────────────────────────────────────────────────
-const RPC_URL   = "https://devnet.phantasma.info/rpc";
-const NEXUS     = "testnet";
-const CHAIN     = "main";
-const CONTRACT  = "saturnbonds";
-const METHOD    = "purchaseBond";
-
-const GAS_PRICE = 100000;
-const GAS_LIMIT = 75000;
-const PAYLOAD   = Base16.encode("DEXv4-purchaseBond");
-
-// ─── Wallet ───────────────────────────────────────────────────────────────────
-const WIF = process.env.PHANTASMA_WIF;
-if (!WIF) {
-  console.error("ERROR: PHANTASMA_WIF not set in .env");
-  process.exit(1);
-}
-const keys = PhantasmaKeys.fromWIF(WIF);
-const rpc  = new PhantasmaAPI(RPC_URL, undefined, NEXUS);
-
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-// ─── Main ─────────────────────────────────────────────────────────────────────
-async function main() {
-  console.log("=".repeat(60));
-  console.log("  saturnbonds.purchaseBond");
-  console.log("  Wallet:", keys.Address);
-  console.log("=".repeat(60));
-
-  // Build the argument list for the contract call.
-  // Edit the placeholders below to suit your call.
-  const args = [
-    keys.Address,  // from: address
-    0  /* REPLACE: amount/id */,  // bondId: number
-  ];
-
-  const sb = new ScriptBuilder();
-  sb.AllowGas(keys.Address, Address.Null, GAS_PRICE, GAS_LIMIT);
-  sb.CallContract(CONTRACT, METHOD, args);
-  sb.SpendGas(keys.Address);
-  const script = sb.EndScript();
-
-  const expiration = new Date(Date.now() + 5 * 60 * 1000);
-  const tx = new Transaction(NEXUS, CHAIN, script, expiration, PAYLOAD);
-  tx.signWithKeys(keys);
-
-  const txHex = Base16.encodeUint8Array(tx.ToByteAray(true));
-  console.log("Broadcasting...");
-  const txHash = await rpc.sendRawTransaction(txHex);
-  console.log("TX hash :", txHash);
-  console.log("Explorer: https://test-explorer.phantasma.info/tx/" + txHash);
-
-  console.log("\nWaiting 6s for confirmation...");
-  await sleep(6000);
-  const result = await rpc.getTransaction(txHash);
-  console.log("\nResult:", JSON.stringify(result, null, 2));
-  console.log(result?.state === "Halt" ? "\nSUCCESS" : "\nMay have failed — check above");
-}
-
-main().catch(err => { console.error("FATAL:", err); process.exit(1); });
+send({
+  file: "Contract9scripts/purchaseBond.js",
+  contract: "saturnbonds",
+  method: "purchaseBond",
+  params: [
+    { name: "from", type: "address", desc: "Buyer wallet (must be witness, cannot be the issuer)." },
+    { name: "bondId", type: "number", desc: "Bond to purchase." },
+  ],
+  walletIndex: 0,
+  docs: "https://devops.saturnx.cc/reference#saturnbonds-purchaseBond",
+});

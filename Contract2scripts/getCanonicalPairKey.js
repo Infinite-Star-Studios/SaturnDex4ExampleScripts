@@ -2,84 +2,34 @@
 "use strict";
 
 /**
- * getCanonicalPairKey.js
+ * saturnpools.getCanonicalPairKey — read (free, no wallet)
+ * getCanonicalPairKey(symbolA: string, symbolB: string): string
  *
- * Read-only call to saturnpools.getCanonicalPairKey() (2_PoolRegistry.tomb).
- * Returns: string
+ * Returns the protocol's canonical key for a token pair. Symbols are sorted
+ * alphabetically so that "SOUL+KCAL" and "KCAL+SOUL" both map to the same key
+ * "KCAL_SOUL". Use this whenever you need to look up how many pools exist for
+ * a pair.
  *
- * No witness / signing required.
+ * Returns string: Canonical pair key, e.g. "KCAL_SOUL".
+ *
+ * Usage: node Contract2scripts/getCanonicalPairKey.js <symbolA> <symbolB>
+ *   symbolA (string): First token symbol.
+ *   symbolB (string): Second token symbol.
+ *   Numbers are raw integer units (1 SOUL = 100000000, 1 KCAL = 10000000000).
+ *   NETWORK=devnet (default) or NETWORK=mainnet.
+ *
+ * Docs: https://devops.saturnx.cc/reference#saturnpools-getCanonicalPairKey
  */
 
-const { PhantasmaAPI, ScriptBuilder, Decoder, Address } = require("phantasma-sdk-ts");
+const { read } = require("../common");
 
-const RPC_URL  = "https://devnet.phantasma.info/rpc";
-const NEXUS    = "testnet";
-const CHAIN    = "main";
-const CONTRACT = "saturnpools";
-
-const rpc = new PhantasmaAPI(RPC_URL, undefined, NEXUS);
-
-function tryConvertAddress(hex) {
-  if (typeof hex !== "string" || hex.length !== 70) return null;
-  const lenByte = parseInt(hex.substring(0, 2), 16);
-  if (lenByte !== 34) return null;
-  const addrHex = hex.substring(2);
-  const kindByte = parseInt(addrHex.substring(0, 2), 16);
-  if (kindByte < 1 || kindByte > 3) return null;
-  try {
-    const bytes = Uint8Array.from(Buffer.from(addrHex, "hex"));
-    return Address.FromBytes(bytes).Text;
-  } catch { return null; }
-}
-
-function normalizeDecoded(value) {
-  if (value == null) return value;
-  if (typeof value === "string") {
-    const addr = tryConvertAddress(value);
-    if (addr) return addr;
-    return value;
-  }
-  if (value.Text) return value.Text;
-  if (typeof value.toString === "function") return value.toString();
-  return value;
-}
-
-function decodeResult(res) {
-  if (!res) return null;
-  if (Array.isArray(res.results)) {
-    return res.results.map((hex) => {
-      if (!hex || typeof hex !== "string") return hex;
-      try { return normalizeDecoded(new Decoder(hex).readVmObject()); } catch { return hex; }
-    });
-  }
-  if (res.result) {
-    try { return normalizeDecoded(new Decoder(res.result).readVmObject()); } catch { return res.result; }
-  }
-  return res;
-}
-
-async function main() {
-  console.log("=".repeat(60));
-  console.log("  saturnpools.getCanonicalPairKey");
-  console.log("=".repeat(60));
-
-  const args = [
-  "SOUL",  // symbolA: string
-  "KCAL",  // symbolB: string
-];
-
-  const sb = new ScriptBuilder();
-  sb.BeginScript();
-  sb.CallContract(CONTRACT, "getCanonicalPairKey", args);
-  const script = sb.EndScript();
-
-  const res = await rpc.invokeRawScript(CHAIN, script);
-  if (res && res.error) {
-    console.error("ERROR:", res.error);
-    process.exit(1);
-  }
-  console.log("decoded:", JSON.stringify(decodeResult(res), null, 2));
-  console.log("raw    :", JSON.stringify(res));
-}
-
-main().catch(err => { console.error("FATAL:", err); process.exit(1); });
+read({
+  file: "Contract2scripts/getCanonicalPairKey.js",
+  contract: "saturnpools",
+  method: "getCanonicalPairKey",
+  params: [
+    { name: "symbolA", type: "string", desc: "First token symbol." },
+    { name: "symbolB", type: "string", desc: "Second token symbol." },
+  ],
+  docs: "https://devops.saturnx.cc/reference#saturnpools-getCanonicalPairKey",
+});

@@ -2,85 +2,39 @@
 "use strict";
 
 /**
- * updatePoolFee.js
+ * saturnpools.updatePoolFee — write (signed transaction, needs PHANTASMA_WIF)
+ * updatePoolFee(from: address, poolId: number, newFeePer10k: number)
  *
- * Calls saturnpools.updatePoolFee() (2_PoolRegistry.tomb) as a signed
- * transaction. Fill in the placeholder argument values below before running.
+ * Lets the pool provider change their pool's per-swap fee. The new fee must
+ * lie inside the protocol range (getMinPoolFeePer10k .. getMaxPoolFeePer10k,
+ * 30–3000 per 10k by default) and the pool must be free of locks: no active
+ * reward-campaign enrollment and no financial product (bond, rental, option,
+ * syndicate, launchpad or loan collateral). While a rental or fee option is
+ * live the fee is driven by saturnrental / saturnfeeopts, which call this
+ * method on the operator's behalf — a direct call from the provider, even one
+ * who owns the rental listing, is refused until the product ends.
  *
- * Required .env:
- *   PHANTASMA_WIF=<your wif key>
+ * Usage: node Contract2scripts/updatePoolFee.js <poolId> <newFeePer10k>
+ *   poolId (number): Pool to update.
+ *   newFeePer10k (number): New fee in units of 1/10,000 (30 = 0.3%).
+ *   from is filled in with your wallet (PHANTASMA_WIF).
+ *   Numbers are raw integer units (1 SOUL = 100000000, 1 KCAL = 10000000000).
+ *   NETWORK=devnet (default) or NETWORK=mainnet.
+ *
+ * Docs: https://devops.saturnx.cc/reference#saturnpools-updatePoolFee
  */
 
-const {
-  PhantasmaKeys,
-  ScriptBuilder,
-  Transaction,
-  PhantasmaAPI,
-  Address,
-  Base16,
-} = require("phantasma-sdk-ts");
-const dotenv = require("dotenv");
+const { send } = require("../common");
 
-dotenv.config();
-
-// ─── Config ───────────────────────────────────────────────────────────────────
-const RPC_URL   = "https://devnet.phantasma.info/rpc";
-const NEXUS     = "testnet";
-const CHAIN     = "main";
-const CONTRACT  = "saturnpools";
-const METHOD    = "updatePoolFee";
-
-const GAS_PRICE = 100000;
-const GAS_LIMIT = 75000;
-const PAYLOAD   = Base16.encode("DEXv4-updatePoolFee");
-
-// ─── Wallet ───────────────────────────────────────────────────────────────────
-const WIF = process.env.PHANTASMA_WIF;
-if (!WIF) {
-  console.error("ERROR: PHANTASMA_WIF not set in .env");
-  process.exit(1);
-}
-const keys = PhantasmaKeys.fromWIF(WIF);
-const rpc  = new PhantasmaAPI(RPC_URL, undefined, NEXUS);
-
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-// ─── Main ─────────────────────────────────────────────────────────────────────
-async function main() {
-  console.log("=".repeat(60));
-  console.log("  saturnpools.updatePoolFee");
-  console.log("  Wallet:", keys.Address);
-  console.log("=".repeat(60));
-
-  // Build the argument list for the contract call.
-  // Edit the placeholders below to suit your call.
-  const args = [
-    keys.Address,  // from: address
-    0  /* REPLACE: amount/id */,  // poolId: number
-    0  /* REPLACE: amount/id */,  // newFeePer10k: number
-  ];
-
-  const sb = new ScriptBuilder();
-  sb.AllowGas(keys.Address, Address.Null, GAS_PRICE, GAS_LIMIT);
-  sb.CallContract(CONTRACT, METHOD, args);
-  sb.SpendGas(keys.Address);
-  const script = sb.EndScript();
-
-  const expiration = new Date(Date.now() + 5 * 60 * 1000);
-  const tx = new Transaction(NEXUS, CHAIN, script, expiration, PAYLOAD);
-  tx.signWithKeys(keys);
-
-  const txHex = Base16.encodeUint8Array(tx.ToByteAray(true));
-  console.log("Broadcasting...");
-  const txHash = await rpc.sendRawTransaction(txHex);
-  console.log("TX hash :", txHash);
-  console.log("Explorer: https://test-explorer.phantasma.info/tx/" + txHash);
-
-  console.log("\nWaiting 6s for confirmation...");
-  await sleep(6000);
-  const result = await rpc.getTransaction(txHash);
-  console.log("\nResult:", JSON.stringify(result, null, 2));
-  console.log(result?.state === "Halt" ? "\nSUCCESS" : "\nMay have failed — check above");
-}
-
-main().catch(err => { console.error("FATAL:", err); process.exit(1); });
+send({
+  file: "Contract2scripts/updatePoolFee.js",
+  contract: "saturnpools",
+  method: "updatePoolFee",
+  params: [
+    { name: "from", type: "address", desc: "Pool provider (must be the transaction witness)." },
+    { name: "poolId", type: "number", desc: "Pool to update." },
+    { name: "newFeePer10k", type: "number", desc: "New fee in units of 1/10,000 (30 = 0.3%)." },
+  ],
+  walletIndex: 0,
+  docs: "https://devops.saturnx.cc/reference#saturnpools-updatePoolFee",
+});
